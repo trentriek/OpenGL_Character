@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <string>
 #include <map>
 
 #define GLEW_STATIC
@@ -20,6 +21,7 @@
 
 #include "GLSL.h"
 #include "MatrixStack.h"
+#include "Component.h"
 
 using namespace std;
 using namespace glm;
@@ -33,6 +35,10 @@ map<string,GLint> unifIDs;
 map<string,GLuint> bufIDs;
 int indCount;
 
+GLFWcharfun character;
+vector<Component*> Body;
+Component* torso;
+
 // This function is called when a GLFW error occurs
 static void error_callback(int error, const char *description)
 {
@@ -44,6 +50,15 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action, 
 {
 	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, GL_TRUE);
+	}
+	if (key == GLFW_KEY_PERIOD && action == GLFW_PRESS) {
+		//glfwSetWindowShouldClose(window, GL_TRUE);
+		cout << "pressed!" << endl;
+		Component* temp = torso->get_active();
+		cout << "active currently is " << temp->name << endl;
+		temp->isActive = false;
+		//temp->get_child(0);
+		//cout << "active now is " << temp->name << endl;
 	}
 }
 
@@ -61,7 +76,46 @@ static void resize_callback(GLFWwindow *window, int width, int height)
 
 static void character_callback(GLFWwindow* window, unsigned int codepoint)
 {
-	//IMPLEMENT ME
+
+	//glfwSetCharCallback(window, character);
+}
+
+void set_component(Component* component, float TPx, float TPy, float TPz, float JAx, float JAy, float JAz, 
+										float TJx, float TJy, float TJz, float Sx, float Sy, float Sz )
+{
+	component->TP.x = TPx; component->TP.y = TPy; component->TP.z = TPz;
+	component->JA.x = JAx; component->JA.y = JAy; component->JA.z = JAz;
+	component->TJ.x = TJx; component->TJ.y = TJy; component->TJ.z = TJz;
+	component->S.x = Sx; component->S.y = Sy; component->S.z = Sz;
+
+
+}
+
+void body_init(float uniform_scale = 1.0f) {
+	//construct character
+	torso = new Component("torso");
+	Body.push_back(torso);						//170.0f, 45.0f, 0.0f
+	set_component(torso, 0.0f, 0.0f, -10.0f,	0.0f, 0.0f, 0.0f,	0.0f, 0.0f, 0.0f,	1.0f, 1.5f, 0.75f);
+	Component* head = new Component("head");
+	Body.push_back(head);
+	torso->add_child(head);
+	set_component(head, 0.0f, .75f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, .25f, 0.0f, 0.5f, 0.5f, 0.5f);
+	Component* ula = new Component("Upper Left arm");
+	Body.push_back(ula);
+	torso->add_child(ula);
+	set_component(ula, 0.5f, .75f, 0.0f, 0.0f, 0.0f, -60.0f, 0.125f, 0.375f, 0.0f, 0.25f, 0.75f, 0.25f);
+	//Component* lla = new Component("Lower Left arm");
+	//Body.push_back(lla);
+	//ula->add_child(lla);
+	//set_component(lla, 0.5f, .75f, 0.0f, 0.0f, 0.0f, -60.0f, 0.125f, 0.375f, 0.0f, 0.25f, 0.75f, 0.25f);
+	/*
+	Component* ura = new Component("Upper Right arm");
+	Body.push_back(ura);
+	torso->add_child(ura);
+	Component* lra = new Component("Lower Right arm");
+	Body.push_back(lra);
+	ura->add_child(lra);
+	*/
 }
 
 // This function is called once to initialize the scene and OpenGL
@@ -70,7 +124,10 @@ static void init()
 	//
 	// General setup
 	//
-	
+
+	//create the body
+	body_init();
+
 	// Initialize time.
 	glfwSetTime(0.0);
 	
@@ -243,36 +300,38 @@ static void render()
 	// Set the pointer -- the data is already on the GPU
 	glVertexAttribPointer(attrIDs["aNor"], 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
 	
-	MV.pushMatrix(); 
-	glm::vec3 initial_transform; initial_transform.x = 0.0, initial_transform.y = 0.0, initial_transform.z = -10.0;
-	MV.translate(initial_transform);
-	MV.pushMatrix(); //create initial position
-	char* y = " ";
-	/***********square1*********/
-	glm::vec3 T1; T1.x = -1.0, T1.y = 0.0, T1.z = 0.0;
-	MV.translate(T1);
-	glm::vec3 R1; R1.x = 0.0, R1.y = -0.3, R1.z = 0.3;
-	MV.rotate(45.0f, R1);
-	glm::vec3 S1; S1.x = 1, S1.y = 3.0, S1.z = 1, 0;
-	MV.scale(S1);
-	//MV.pushMatrix(); not needed
-	//MV.print(y);
-	glUniformMatrix4fv(unifIDs["MV"], 1, GL_FALSE, value_ptr(MV.topMatrix()));
-	glDrawArrays(GL_TRIANGLES, 0, indCount);
-	//MV.popMatrix();
-	//MV.print(y);
-	/***********square2*********/
-	MV.popMatrix();
-	glm::vec3 T2; T2.x = 2.0, T2.y = 0.0, T2.z = 0.0;
-	MV.translate(T2);
-	glm::vec3 R2; R2.x = 0.0, R2.y = -0.3, R2.z = 0.3;
-	MV.rotate(45.0f, R2);
-	glm::vec3 S2; S2.x = 1, S2.y = 3.0, S2.z = 1, 0;
-	MV.scale(S2);
-	MV.pushMatrix();
-	glUniformMatrix4fv(unifIDs["MV"], 1, GL_FALSE, value_ptr(MV.topMatrix()));
-	glDrawArrays(GL_TRIANGLES, 0, indCount);
-	MV.popMatrix();
+	//blocks to test rendering
+	if (false) {
+		MV.pushMatrix();
+		glm::vec3 initial_transform; initial_transform.x = 0.0, initial_transform.y = 0.0, initial_transform.z = -10.0;
+		MV.translate(initial_transform);
+		MV.pushMatrix(); //create initial position
+		char* y = " ";
+		/***********square1*********/
+		glm::vec3 T1; T1.x = -1.0, T1.y = 0.0, T1.z = 0.0;
+		MV.translate(T1);
+		glm::vec3 R1; R1.x = 0.0, R1.y = -0.3, R1.z = 0.3;
+		MV.rotate(45.0f, R1);
+		glm::vec3 S1; S1.x = 1, S1.y = 3.0, S1.z = 1, 0;
+		MV.scale(S1);
+		glUniformMatrix4fv(unifIDs["MV"], 1, GL_FALSE, value_ptr(MV.topMatrix()));
+		glDrawArrays(GL_TRIANGLES, 0, indCount);
+		/***********square2*********/
+		MV.popMatrix();
+		glm::vec3 T2; T2.x = 2.0, T2.y = 0.0, T2.z = 0.0;
+		MV.translate(T2);
+		glm::vec3 R2; R2.x = 0.0, R2.y = -0.3, R2.z = 0.3;
+		MV.rotate(45.0f, R2);
+		glm::vec3 S2; S2.x = 1, S2.y = 3.0, S2.z = 1, 0;
+		MV.scale(S2);
+		MV.pushMatrix();
+		glUniformMatrix4fv(unifIDs["MV"], 1, GL_FALSE, value_ptr(MV.topMatrix()));
+		glDrawArrays(GL_TRIANGLES, 0, indCount);
+		MV.popMatrix();
+	}
+
+	//draw body
+	torso->draw(MV, unifIDs, indCount);
 
 	// Unbind the buffer object
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
